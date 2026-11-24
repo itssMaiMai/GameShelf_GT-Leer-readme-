@@ -15,22 +15,17 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 /**
- * Conexión a la base de datos (H2). Se configura con la URL JDBC:
- * <ul>
- *   <li><b>Archivo local</b> (por defecto): {@code jdbc:h2:file:<ruta>/gameshelf-db;AUTO_SERVER=TRUE}. Es un único archivo
- *       ({@code gameshelf-db.mv.db}) que contiene TODO: juegos, usuarios, calificaciones e imágenes. Pasando ese archivo
- *       se pasan también las imágenes. Con AUTO_SERVER varias copias de la app en la misma PC pueden usarlo a la vez.</li>
- *   <li><b>Servidor</b>: {@code jdbc:h2:tcp://host:9092/gameshelf-db}, contra un servidor iniciado con
- *       {@code java -jar GameShelf.jar --servidor} (ver README).</li>
- * </ul>
+ * Conexión a la base de datos MariaDB.
  * Orden de configuración: propiedades del sistema ({@code -Dgameshelf.db.url=...}), luego el archivo
  * {@code gameshelf.properties} (claves db.url, db.usuario, db.clave) y por último los valores por defecto.
  */
 public class ConexionDB {
     public static final String ARCHIVO_CONFIG = "gameshelf.properties";
-    public static final String BASE_POR_DEFECTO = "gameshelf-db";
+    public static final String HOST_POR_DEFECTO = "167.126.30.65";
+    public static final int PUERTO_POR_DEFECTO = 3306;
+    public static final String BASE_POR_DEFECTO = "gameshelf";
     public static final String USUARIO_POR_DEFECTO = "gameshelf";
-    public static final String CLAVE_POR_DEFECTO = "gameshelf";
+    public static final String CLAVE_POR_DEFECTO = "h6iyuygsfaOrufMPdUQV";
 
     private String url;
     private String usuario;
@@ -48,7 +43,8 @@ public class ConexionDB {
                 // Si no se puede leer, se usan los valores por defecto.
             }
         }
-        this.url = valor("gameshelf.db.url", archivo.getProperty("db.url"), urlLocal(BASE_POR_DEFECTO));
+        String urlDefecto = urlMariaDB(HOST_POR_DEFECTO, PUERTO_POR_DEFECTO, BASE_POR_DEFECTO);
+        this.url = valor("gameshelf.db.url", archivo.getProperty("db.url"), urlDefecto);
         this.usuario = valor("gameshelf.db.usuario", archivo.getProperty("db.usuario"), USUARIO_POR_DEFECTO);
         this.clave = valor("gameshelf.db.clave", archivo.getProperty("db.clave"), CLAVE_POR_DEFECTO);
     }
@@ -59,17 +55,8 @@ public class ConexionDB {
         this.clave = clave == null ? "" : clave;
     }
 
-    /** Conexión a una base en un archivo local (rutaBase sin extensión), con las credenciales por defecto. */
-    public static ConexionDB local(String rutaBase) {
-        return new ConexionDB(urlLocal(rutaBase), USUARIO_POR_DEFECTO, CLAVE_POR_DEFECTO);
-    }
-
-    public static String urlLocal(String rutaBase) {
-        return "jdbc:h2:file:" + Paths.get(rutaBase).toAbsolutePath().normalize() + ";AUTO_SERVER=TRUE";
-    }
-
-    public static String urlServidor(String host, int puerto, String base) {
-        return "jdbc:h2:tcp://" + host.trim() + ":" + puerto + "/" + base.trim();
+    public static String urlMariaDB(String host, int puerto, String base) {
+        return "jdbc:mariadb://" + host.trim() + ":" + puerto + "/" + base.trim();
     }
 
     private static String valor(String propiedadSistema, String delArchivo, String porDefecto) {
@@ -83,16 +70,16 @@ public class ConexionDB {
         return url;
     }
 
-    /** Corrige el error intencional original: ya no acepta null ni valores vacíos. */
     public synchronized void setUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
             throw new IllegalArgumentException("La dirección de la base de datos no puede estar vacía.");
         }
-        if (!url.trim().startsWith("jdbc:h2:")) {
-            throw new IllegalArgumentException("Solo se admiten bases H2 (jdbc:h2:...).");
+        String u = url.trim();
+        if (!u.startsWith("jdbc:mariadb:") && !u.startsWith("jdbc:mysql:")) {
+            throw new IllegalArgumentException("Solo se admiten bases MariaDB (jdbc:mariadb:...).");
         }
         cerrar();
-        this.url = url.trim();
+        this.url = u;
     }
 
     public String getUsuario() {
@@ -110,17 +97,18 @@ public class ConexionDB {
     }
 
     public boolean esRemota() {
-        return url.contains(":tcp:") || url.contains(":ssl:");
+        return true;
     }
 
     /** Texto corto para mostrar al usuario. */
     public String descripcion() {
-        if (esRemota()) {
-            String s = url.substring(url.indexOf("//") + 2);
+        int inicio = url.indexOf("//");
+        if (inicio >= 0) {
+            String s = url.substring(inicio + 2);
             int corte = s.indexOf('/');
-            return "servidor " + (corte < 0 ? s : s.substring(0, corte));
+            return "MariaDB " + (corte < 0 ? s : s.substring(0, corte));
         }
-        return "archivo local";
+        return "MariaDB";
     }
 
     /**
@@ -131,9 +119,9 @@ public class ConexionDB {
         if (conexion == null || conexion.isClosed() || !conexion.isValid(2)) {
             cerrar();
             try {
-                Class.forName("org.h2.Driver");
+                Class.forName("org.mariadb.jdbc.Driver");
             } catch (ClassNotFoundException e) {
-                throw new SQLException("Falta el controlador de base de datos H2.", e);
+                throw new SQLException("Falta el controlador de base de datos MariaDB.", e);
             }
             Connection nueva = DriverManager.getConnection(url, usuario, clave);
             try {

@@ -35,9 +35,7 @@ public class Main {
     private static ConexionDB conexionActual;
 
     public static void main(String[] args) {
-        if (args.length > 0 && "--servidor".equals(args[0])) {
-            Servidor.ejecutar(args);
-        } else if (args.length > 0 && "--importar".equals(args[0])) {
+        if (args.length > 0 && "--importar".equals(args[0])) {
             importarDesdeConsola(args);
         } else {
             SwingUtilities.invokeLater(Main::iniciar);

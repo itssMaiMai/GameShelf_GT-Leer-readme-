@@ -46,7 +46,7 @@ public class CalificacionRepository {
     public synchronized Map<Integer, ResumenCalificacion> resumenesPorJuego() {
         Map<Integer, ResumenCalificacion> resumenes = new HashMap<>();
         try (Statement st = db.conectar().createStatement();
-             ResultSet rs = st.executeQuery("SELECT videojuego_id, AVG(CAST(puntuacion AS DOUBLE PRECISION)), COUNT(*) FROM calificacion GROUP BY videojuego_id")) {
+             ResultSet rs = st.executeQuery("SELECT videojuego_id, AVG(puntuacion * 1.0), COUNT(*) FROM calificacion GROUP BY videojuego_id")) {
             while (rs.next()) {
                 resumenes.put(rs.getInt(1), new ResumenCalificacion(rs.getDouble(2), rs.getInt(3)));
             }
